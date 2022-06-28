@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name:  nginx-bitnami
+  namespace: default
+  labels:
+    app:  nginx-bitnami
+spec:
+  selector:
+    matchLabels:
+      app: nginx-bitnami
+  replicas: 4
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app:  nginx-bitnami
+    spec:
+      # initContainers:
+        # Init containers are exactly like regular containers, except:
+          # - Init containers always run to completion.
+          # - Each init container must complete successfully before the next one starts.
+      volumes:
+      - name: nginx-conf
+        configMap:
+          name: nginx-conf
+          items:
+            - key: nginx.conf
+              path: nginx.conf
+            - key: mime.types
+              path: mime.types
+            - key: default-https-server-block.conf
+              path: server_blocks/default-https-server-block.conf
+            - key: protect-hidden-files.conf
+              path: bitnami/protect-hidden-files.conf
+            - key: fastcgi.conf
+              path: bitnami/fastcgi.conf
+            - key: server.crt
+              path: bitnami/certs/server.crt
+            - key: server.key
+              path: bitnami/certs/server.key
+      containers:
+      - name:  nginx-bitnami
+        image:  bitnami/nginx-intel
+        volumeMounts:
+            - name: nginx-conf
+              mountPath: /opt/bitnami/nginx/conf
+              readOnly: true
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+        livenessProbe:
+          tcpSocket:
+            port: 8443
+          initialDelaySeconds: 5
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 8443
+          initialDelaySeconds: 5
+          timeoutSeconds: 2
+          successThreshold: 1
+          failureThreshold: 3
+          periodSeconds: 10
+        ports:
+        - containerPort:  8443
+      restartPolicy: Always
